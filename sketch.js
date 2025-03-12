@@ -187,12 +187,12 @@ function setup() {
   bgMusic.setVolume(musicVolume);
 
   // Auto-start audio context and music
-  getAudioContext()
+  /*getAudioContext()
     .resume()
     .then(() => {
       bgMusic.loop();
       isAudioStarted = true;
-    });
+    });*/
 
   groundLevel = height - 100;
 }
@@ -335,6 +335,10 @@ let popupHeight = 300;
 function mousePressed() {
   if (gameState === "menu") {
     if (isMouseOverButton(width / 2, height / 2 - 120)) {
+      if (!bgMusic.isPlaying()) {
+        bgMusic.setVolume(musicVolume);
+        bgMusic.loop();
+      }
       gameState = "game";
     } else if (isMouseOverButton(width / 2, height / 2 - 40)) {
       gameState = "music";
