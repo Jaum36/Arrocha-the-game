@@ -6,7 +6,7 @@ let gameState = "menu"; // Can be 'menu' or 'game'
 let buttonWidth = 200;
 let buttonHeight = 50;
 
-let musicVolume = 0;
+let musicVolume = 0.5;
 let sfxVolume = 0.5;
 let sliderX, sliderX2
 let sliderY, sliderY2;
