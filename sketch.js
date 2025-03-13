@@ -6,9 +6,11 @@ let gameState = "menu"; // Can be 'menu' or 'game'
 let buttonWidth = 200;
 let buttonHeight = 50;
 
+let controlScheme = "WASD";
+
 let musicVolume = 0.5;
 let sfxVolume = 0.5;
-let sliderX, sliderX2
+let sliderX, sliderX2;
 let sliderY, sliderY2;
 let sliderWidth = 200;
 let sliderHeight = 20;
@@ -19,7 +21,6 @@ let playerHealth = 100;
 let isDead = false;
 
 const VERTICAL_LASER_CHANCE = 0.5; // 30% chance for vertical lasers
-
 
 let isAudioStarted = false; // Add this with your other variables
 
@@ -44,8 +45,8 @@ let buttonHoverStates = {};
 let popupHoverStates = {};
 const popupHoverSpeed = 0.15;
 
-const WALL_LEFT = 0; 
-const WALL_RIGHT = window.innerWidth;  
+const WALL_LEFT = 0;
+const WALL_RIGHT = window.innerWidth;
 
 let isCrouching = false;
 
@@ -61,17 +62,21 @@ let songs = [
     name: "Resenha do Arrocha 1.0",
     file: "assets/sounds/music/Iframe RESENHA DO ARROCHA 1.0 - J. ESKINE - CALMA VIDA TÁ DE BOA [Q9VAdq223VU].mp3",
   },
-  { name: "Resenha do Arrocha 2.0",
-    file: "assets/sounds/music/Resenha2.mp3"
-   },
-  { name: "Resenha do Arrocha 3.0", 
-    file: "assets/sounds/music/Iframe J. ESKINE - RESENHA DO ARROCHA 3.0 _ O QUE BATE É MALUQUICE [8WVQBd003VU].mp3" 
+  {
+    name: "Resenha do Arrocha 2.0",
+    file: "assets/sounds/music/Resenha2.mp3",
   },
-  { name: "Resenha de Ex Love", 
-    file: "assets/sounds/music/Iframe J. ESKINE - RESENHA DE EX-LOVE _ O QUE BATE É MALUQUICE [tvQ_TPtS9Mc].mp3" 
+  {
+    name: "Resenha do Arrocha 3.0",
+    file: "assets/sounds/music/Iframe J. ESKINE - RESENHA DO ARROCHA 3.0 _ O QUE BATE É MALUQUICE [8WVQBd003VU].mp3",
   },
-  { name: "Mãe Solteira", 
-    file: "assets/sounds/music/Iframe MÃE SOLTEIRA - J.Eskine, MC Davi, MC G15, DG e Batidão Stronda (GR6 Explode) [WpzuDyiwfSg].mp3" 
+  {
+    name: "Resenha de Ex Love",
+    file: "assets/sounds/music/Iframe J. ESKINE - RESENHA DE EX-LOVE _ O QUE BATE É MALUQUICE [tvQ_TPtS9Mc].mp3",
+  },
+  {
+    name: "Mãe Solteira",
+    file: "assets/sounds/music/Iframe MÃE SOLTEIRA - J.Eskine, MC Davi, MC G15, DG e Batidão Stronda (GR6 Explode) [WpzuDyiwfSg].mp3",
   },
 ];
 let currentSongIndex = 0;
@@ -100,20 +105,20 @@ let selectedColor = 0;
 const colorModes = ["Normal", "Protanopia", "Deuteranopia", "Tritanopia"];
 const colorSchemes = {
   Normal: {
-    primary: [47, 65, 86], // Blue
-    accent: [122, 149, 143], // Green
+    primary: [85, 104, 175], // Blue
+    accent: [205, 214, 41], // Green
   },
   Protanopia: {
-    primary: [0, 70, 140],    // Dark blue (appears dark to protanopes)
-    accent: [255, 220, 0],    // Yellow (visible to protanopes)
+    primary: [0, 70, 140], // Dark blue (appears dark to protanopes)
+    accent: [255, 220, 0], // Yellow (visible to protanopes)
   },
   Deuteranopia: {
-    primary: [0, 40, 120],    // Navy blue (visible to deuteranopes)
-    accent: [255, 180, 0],    // Orange-yellow (visible to deuteranopes)
+    primary: [0, 40, 120], // Navy blue (visible to deuteranopes)
+    accent: [255, 180, 0], // Orange-yellow (visible to deuteranopes)
   },
   Tritanopia: {
-    primary: [140, 0, 0],     // Dark red (visible to tritanopes)
-    accent: [200, 200, 0],    // Yellow (visible to tritanopes)
+    primary: [140, 0, 0], // Dark red (visible to tritanopes)
+    accent: [200, 200, 0], // Yellow (visible to tritanopes)
   },
 };
 
@@ -126,7 +131,7 @@ let dropdownY = 0; // Will be set in drawOptions
 let dropdownAnimationProgress = 0; // Controla a animação do dropdown (0 a 1)
 let dropdownAnimationSpeed = 0.1;
 
-let gravity = 0.5;
+let gravity = 0;
 let velocityY = 0;
 let groundLevel; // Nível do chão
 
@@ -134,6 +139,35 @@ let isPopupOpen = false;
 const popupOptions = ["Continuar", "Opções", "Voltar ao Menu"];
 let popupButtonWidth = 200;
 let popupButtonHeight = 50;
+
+let eskinePracima = [];
+let currentUpFrame = 0;
+let upFrameCounter = 0;
+const UP_FRAME_DELAY = 8; // Slightly slower than run animation
+
+let eskinePrabaixo = [];
+let currentDownFrame = 0;
+let downFrameCounter = 0;
+const DOWN_FRAME_DELAY = 8; // Same as UP_FRAME_DELAY for consistency
+
+// Add these constants at the top of your file with other constants
+const COIN_SPAWN_POINTS = [
+  { x: 200, y: 200 },
+  { x: 400, y: 300 },
+  { x: 600, y: 400 },
+  { x: 800, y: 200 },
+  { x: 1000, y: 300 },
+  { x: 1200, y: 400 },
+  // Add more spawn points as needed
+];
+
+// Add these constants at the top of your file
+const INITIAL_LASER_SPAWN_RATE = 50; // Initial frames between laser spawns
+const MIN_LASER_SPAWN_RATE = 5; // Minimum frames between laser spawns
+const LASER_SPAWN_DECREASE = 10; // How much to decrease spawn rate per coin collected
+
+// Add to your variables at the top of the file
+let bgImage;
 
 function preload() {
   customFont = loadFont("assets/fonts/BebasNeue-Regular.ttf"); // Carrega a fonte
@@ -175,7 +209,17 @@ function preload() {
   jumpSound = loadSound("assets/sounds/sfx/eskine-pulando.mp3");
   hitSound = loadSound("assets/sounds/sfx/eskine-tomando.wav");
   coinSound = loadSound("assets/sounds/sfx/moeda.wav");
-  
+
+  eskinePracima = [];
+  eskinePracima[0] = loadImage("assets/sprites/eskine/eskine-pracima-1.png");
+  eskinePracima[1] = loadImage("assets/sprites/eskine/eskine-pracima-2.png");
+
+  eskinePrabaixo = [];
+  eskinePrabaixo[0] = loadImage("assets/sprites/eskine/eskine-prabaixo-1.png");
+  eskinePrabaixo[1] = loadImage("assets/sprites/eskine/eskine-prabaixo-2.png");
+
+  // Add to preload function
+  bgImage = loadImage("assets/bg-bahia.png");
 }
 
 function setup() {
@@ -198,7 +242,7 @@ function setup() {
 }
 
 function draw() {
-  background((245, 239, 235));
+  background(245, 239, 235);
 
   updateHoverStates();
 
@@ -219,15 +263,41 @@ function draw() {
 // Add mouseDragged function
 function mouseDragged() {
   if (gameState === "options") {
-      if (isDragging) {
-          let newX = constrain(mouseX, width/2 - sliderWidth/2, width/2 + sliderWidth/2);
-          musicVolume = map(newX, width/2 - sliderWidth/2, width/2 + sliderWidth/2, 0, 1);
-          bgMusic.setVolume(musicVolume);
-      }
-      if (isDraggingSFX) {
-          let newX = constrain(mouseX, width/2 - sliderWidth/2, width/2 + sliderWidth/2);
-          sfxVolume = map(newX, width/2 - sliderWidth/2, width/2 + sliderWidth/2, 0, 1);
-      }
+    if (isDragging) {
+      let newX = constrain(
+        mouseX,
+        width / 2 - sliderWidth / 2,
+        width / 2 + sliderWidth / 2
+      );
+      musicVolume = map(
+        newX,
+        width / 2 - sliderWidth / 2,
+        width / 2 + sliderWidth / 2,
+        0,
+        1
+      );
+      bgMusic.setVolume(musicVolume);
+    }
+    if (isDraggingSFX) {
+      let newX = constrain(
+        mouseX,
+        width / 2 - sliderWidth / 2,
+        width / 2 + sliderWidth / 2
+      );
+      sfxVolume = map(
+        newX,
+        width / 2 - sliderWidth / 2,
+        width / 2 + sliderWidth / 2,
+        0,
+        1
+      );
+    }
+  }
+}
+
+function keyPressed() {
+  if (keyCode === ESCAPE && gameState === "game" && !isDead) {
+    isPopupOpen = !isPopupOpen; // Toggle popup state
   }
 }
 
@@ -264,6 +334,9 @@ function drawMenu() {
   // Exit button
   let exitY = height / 2 + 120;
   drawButton("Soltar a Carta", width / 2, exitY, currentScheme);
+
+  // Botão de troca de controle
+  drawControlSchemeButton();
 }
 
 function drawButton(
@@ -334,7 +407,12 @@ function isMouseOverButton(
 let popupHeight = 300;
 function mousePressed() {
   if (gameState === "menu") {
-    if (isMouseOverButton(width / 2, height / 2 - 120)) {
+    // Verifica se o botão de troca de controle foi clicado
+    if (isMouseOverButton(width - 100, 50, 100, 40)) {
+      controlScheme = controlScheme === "WASD" ? "ARROWS" : "WASD";
+    }
+    // Restante do código do menu...
+    else if (isMouseOverButton(width / 2, height / 2 - 120)) {
       if (!bgMusic.isPlaying()) {
         bgMusic.setVolume(musicVolume);
         bgMusic.loop();
@@ -463,189 +541,152 @@ function isMouseOverPopupButton(buttonX, buttonY) {
 }
 
 function drawGame() {
+  // Replace the existing background call with this
+  push();
+  imageMode(CORNER);
+  // Draw the background image scaled to fit the canvas
+  image(bgImage, 0, 0, width, height);
+  pop();
+
   const currentScheme = colorSchemes[colorMode];
 
   // Lógica de física do jogo (só executa se não estiver pausado)
+  // Inside drawGame function, replace the movement code:
   if (!isPopupOpen && !isDead) {
-    velocityY += gravity;
-    squareY += velocityY;
-
-    if (squareY + playerHeight / 2 > groundLevel) {
-      squareY = groundLevel - playerHeight / 2;
-      velocityY = 0;
-      isJumping = false;
-    }
-
-    // Check for crouch
-    if (keyIsDown(83)) {
-      // Tecla S para agachar
-      isCrouching = true;
+    // Movimento horizontal e vertical
+    if (controlScheme === "WASD") {
+      if (keyIsDown(65)) {
+        // Tecla A (esquerda)
+        if (squareX - 100 > 0) {
+          // Check left boundary
+          squareX -= speed * speedMultiplier;
+          facingRight = false;
+        }
+      }
+      if (keyIsDown(68)) {
+        // Tecla D (direita)
+        if (squareX + 100 < width) {
+          // Check right boundary
+          squareX += speed * speedMultiplier;
+          facingRight = true;
+        }
+      }
+      if (keyIsDown(87)) {
+        // Tecla W (cima)
+        if (squareY - 100 > 0) {
+          // Check top boundary
+          squareY -= speed * speedMultiplier;
+        }
+      }
+      if (keyIsDown(83)) {
+        // Tecla S (baixo)
+        if (squareY + 100 < height) {
+          // Check bottom boundary
+          squareY += speed * speedMultiplier;
+        }
+      }
     } else {
-      isCrouching = false;
-    }
-
-    // Only allow horizontal movement if not crouching
-    if (!isCrouching) {
-      // Movimento horizontal
-      if (keyIsDown(65)) { // Tecla A (esquerda)
-          if (squareX - 100 > WALL_LEFT) {
-              squareX -= speed * speedMultiplier;
-              facingRight = false;
-          }
+      if (keyIsDown(LEFT_ARROW)) {
+        // Seta esquerda
+        if (squareX - 100 > 0) {
+          // Check left boundary
+          squareX -= speed * speedMultiplier;
+          facingRight = false;
+        }
       }
-  
-      if (keyIsDown(68)) { // Tecla D (direita)
-          if (squareX + 100 < WALL_RIGHT) {
-              squareX += speed * speedMultiplier;
-              facingRight = true;
-          }
+      if (keyIsDown(RIGHT_ARROW)) {
+        // Seta direita
+        if (squareX + 100 < width) {
+          // Check right boundary
+          squareX += speed * speedMultiplier;
+          facingRight = true;
+        }
       }
-    }
-
-    // Pulo (tecla Espaço)
-    if (keyIsDown(32)) {
-      // Tecla espaço para pular
-      if (squareY + playerHeight / 2 >= groundLevel - 1) {
-        // Pequeno ajuste para detectar o chão
-        velocityY = -12; // Aplica a força de pulo
-        isJumping = true;
-
-        if (jumpSound) {
-          jumpSound.setVolume(sfxVolume);
-          jumpSound.play();
+      if (keyIsDown(UP_ARROW)) {
+        // Seta cima
+        if (squareY - 100 > 0) {
+          // Check top boundary
+          squareY -= speed * speedMultiplier;
+        }
+      }
+      if (keyIsDown(DOWN_ARROW)) {
+        // Seta baixo
+        if (squareY + 100 < height) {
+          // Check bottom boundary
+          squareY += speed * speedMultiplier;
         }
       }
     }
   }
 
-  push();
-  stroke(currentScheme.primary);
-  strokeWeight(4);
-  // Left wall
-  line(WALL_LEFT, 0, WALL_LEFT, groundLevel);
-  // Right wall
-  line(WALL_RIGHT, 0, WALL_RIGHT, groundLevel);
-  pop();
-
-  push();
-  textAlign(LEFT, CENTER);
-  textSize(24);
-  fill(currentScheme.primary);
-  text(`Moedas: ${score}`, 20, 50);
-  text(`Velocidade: ${speedMultiplier.toFixed(1)}x`, 20, 80);
-  pop();
-
-  // Resetar todas as transformações
-  // Resetar transformações ANTES do background
-  resetMatrix();
-  drawingContext.setTransform(1, 0, 0, 1, 0, 0);
-  background((245, 239, 235)); // Limpar fundo com sistema de coordenadas padrão
-
-  // Inside drawGame function, where laser spawning happens
+  // Restante da lógica do jogo (lasers, moedas, etc.)
   if (!isPopupOpen && !isDead) {
+    // Calculate current spawn rate based on score
+    let currentSpawnRate = 100 - (score * 7)
+
     // Spawn new lasers
     framesSinceLastLaser++;
-    if (framesSinceLastLaser >= LASER_SPAWN_RATE / speedMultiplier) {
-        lasers.push(new Laser());
-        framesSinceLastLaser = 0;
+    if (framesSinceLastLaser >= currentSpawnRate / speedMultiplier) {
+      lasers.push(new Laser());
+      framesSinceLastLaser = 0;
     }
 
     // Update and draw lasers
     for (let i = lasers.length - 1; i >= 0; i--) {
-        if (lasers[i].update()) {
-            lasers.splice(i, 1);
-            continue;
-        }
+      if (lasers[i].update()) {
+        lasers.splice(i, 1);
+        continue;
+      }
 
-        if (lasers[i].hits(squareX, squareY, 200, 200)) {
-            damagePlayer(LASER_DAMAGE);
-            lasers.splice(i, 1);
-            continue;
-        }
+      if (lasers[i].hits(squareX, squareY, 200, 200)) {
+        damagePlayer(LASER_DAMAGE);
+        lasers.splice(i, 1);
+        continue;
+      }
 
-        lasers[i].draw(currentScheme);
+      lasers[i].draw(currentScheme);
     }
 
     // Spawn new coins
     framesSinceLastCoin++;
     if (framesSinceLastCoin >= COIN_SPAWN_RATE) {
+      // Only spawn new coin if there are less than X coins
+      if (coins.length < 5) {
+        // Adjust maximum number of coins as needed
         coins.push(new Coin());
-        framesSinceLastCoin = 0;
+      }
+      framesSinceLastCoin = 0;
     }
 
     // Update and draw coins
     for (let i = coins.length - 1; i >= 0; i--) {
-        if (coins[i].update()) {
-            coins.splice(i, 1);
-            continue;
+      if (coins[i].update()) {
+        coins.splice(i, 1);
+        continue;
+      }
+
+      if (coins[i].hits(squareX, squareY, 200, 200)) {
+        score++;
+        coins.splice(i, 1);
+
+        if (coinSound) {
+          coinSound.setVolume(sfxVolume);
+          coinSound.play();
         }
 
-        if (coins[i].hits(squareX, squareY, 200, 200)) {
-          score++;
-          coins.splice(i, 1);
-          
-          // Play coin sound
-          if (coinSound) {
-              coinSound.setVolume(sfxVolume);
-              coinSound.play();
-          }
-      
-          // Speed up every COINS_FOR_SPEEDUP coins
-          if (score % COINS_FOR_SPEEDUP === 0) {
-              speedMultiplier += SPEED_INCREASE;
-          }
-          continue;
+        if (score % COINS_FOR_SPEEDUP === 0) {
+          speedMultiplier += SPEED_INCREASE;
         }
+        continue;
+      }
 
-        coins[i].draw();
+      coins[i].draw();
     }
   }
 
-  // Desenhar elementos do jogo com isolamento
+  // Desenhar o personagem
   push();
-  // Chão
-  stroke(currentScheme.primary);
-  strokeWeight(2);
-  line(0, groundLevel, width, groundLevel);
-  pop();
-
-  push();
-  const healthBarWidth = 200;
-  const healthBarHeight = 20;
-  const healthBarX = width / 2 - 60;
-  const healthBarY = 20;
-
-  // Health bar background
-  fill(100);
-  noStroke();
-  rect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
-
-  // Health bar fill
-  fill(playerHealth > 30 ? color(0, 255, 0) : color(255, 0, 0));
-  rect(
-    healthBarX,
-    healthBarY,
-    (healthBarWidth * playerHealth) / 100,
-    healthBarHeight
-  );
-
-  // Health text
-  fill(255);
-  textAlign(LEFT, CENTER);
-  textSize(16);
-  fill(0)
-  text(
-    `Vida: ${playerHealth}/100`,
-    healthBarX + healthBarWidth + 10,
-    healthBarY + healthBarHeight / 2
-  );
-  pop();
-
-  push();
-  // Personagem
   imageMode(CENTER);
-
-  // Escolher sprite baseado na direção e estado
 
   if (isDead) {
     image(eskineMorrendo, squareX, squareY, 400, 400);
@@ -654,16 +695,32 @@ function drawGame() {
     textAlign(CENTER, CENTER);
     textSize(48);
     fill(currentScheme.primary);
-    text("ACABOU O ARROCHA!", width/2, height/2 - 50);
+    text("ACABOU O ARROCHA!", width / 2, height / 2 - 50);
     pop();
-  } else if (isCrouching) {
-    image(eskineAgachado, squareX, squareY, 400, 400);
   } else {
-    if (facingRight) {
-      if (velocityY < 0 || isJumping) {
-        image(eskinePulando, squareX, squareY, 400, 400);
-      } else if (keyIsDown(68)) {
-        // If pressing D (running right)
+    // Check for downward movement first, then upward, then horizontal
+    if (
+      (controlScheme === "WASD" && keyIsDown(83)) ||
+      (controlScheme === "ARROWS" && keyIsDown(DOWN_ARROW))
+    ) {
+      downFrameCounter++;
+      if (downFrameCounter >= DOWN_FRAME_DELAY) {
+        currentDownFrame = (currentDownFrame + 1) % 2;
+        downFrameCounter = 0;
+      }
+      image(eskinePrabaixo[currentDownFrame], squareX, squareY, 300, 300);
+    } else if (
+      (controlScheme === "WASD" && keyIsDown(87)) ||
+      (controlScheme === "ARROWS" && keyIsDown(UP_ARROW))
+    ) {
+      upFrameCounter++;
+      if (upFrameCounter >= UP_FRAME_DELAY) {
+        currentUpFrame = (currentUpFrame + 1) % 2;
+        upFrameCounter = 0;
+      }
+      image(eskinePracima[currentUpFrame], squareX, squareY, 300, 300);
+    } else if (facingRight) {
+      if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) {
         frameCounter++;
         if (frameCounter >= FRAME_DELAY) {
           currentRunFrame = (currentRunFrame + 1) % 3;
@@ -680,10 +737,7 @@ function drawGame() {
         image(eskineParado, squareX, squareY, 200, 200);
       }
     } else {
-      if (velocityY < 0 || isJumping) {
-        image(eskinePulandoEsquerda, squareX, squareY, 400, 400);
-      } else if (keyIsDown(65)) {
-        // If pressing A (running left)
+      if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) {
         frameCounter++;
         if (frameCounter >= FRAME_DELAY) {
           currentRunFrame = (currentRunFrame + 1) % 3;
@@ -703,71 +757,40 @@ function drawGame() {
   }
   pop();
 
-  // Botão do menu com isolamento reforçado
+  // Botão do menu
   push();
   textSize(24);
   translate(0, 0);
-  textAlign(CENTER, CENTER); // Resetar origem
+  textAlign(CENTER, CENTER);
   drawButton("Menu", 50, 50, colorSchemes[colorMode], 60, 60);
   pop();
 
-  // Pop-up com posicionamento absoluto
+
+  push();
+  textAlign(LEFT, CENTER);
+  textSize(32);
+  fill(currentScheme.primary);
+  
+
+  
+  // Draw score
+  
+  stroke(0)
+  fill(currentScheme.primary);
+  text(`Moedas: ${score}`, width/2, 50);
+  pop();
+
+  // Botão de troca de controle
+  drawControlSchemeButton();
+
+  // Pop-up
   if (isPopupOpen) {
     push();
     resetMatrix();
-    drawingContext.setTransform(1, 0, 0, 1, 0, 0); // Escolher sprite baseado na direção e estado
-    if (facingRight) {
-      if (velocityY < 0 || isJumping) {
-        image(eskinePulando, squareX, squareY, 400, 400);
-      } else if (keyIsDown(68)) {
-        // If pressing D (running right)
-        frameCounter++;
-        if (frameCounter >= FRAME_DELAY) {
-          currentRunFrame = (currentRunFrame + 1) % 3;
-          frameCounter = 0;
-        }
-        image(
-          eskineCorrendoFrames[currentRunFrame],
-          squareX,
-          squareY,
-          400,
-          400
-        );
-      } else {
-        image(eskineParado, squareX, squareY, 200, 200);
-      }
-    } else {
-      if (velocityY < 0 || isJumping) {
-        image(eskinePulandoEsquerda, squareX, squareY, 400, 400);
-      } else if (keyIsDown(65)) {
-        // If pressing A (running left)
-        frameCounter++;
-        if (frameCounter >= FRAME_DELAY) {
-          currentRunFrame = (currentRunFrame + 1) % 3;
-          frameCounter = 0;
-        }
-        image(
-          eskineCorrendoEsquerdaFrames[currentRunFrame],
-          squareX,
-          squareY,
-          400,
-          400
-        );
-      } else {
-        image(eskineParadoEsquerda, squareX, squareY, 200, 200);
-      }
-    }
+    drawingContext.setTransform(1, 0, 0, 1, 0, 0);
     drawPopup();
     pop();
   }
-
-  
-
-  // Resetar configurações gráficas
-  textAlign(LEFT, TOP);
-  textSize(16);
-  fill(255);
-  rectMode(CORNER);
 }
 
 function damagePlayer(amount) {
@@ -787,6 +810,14 @@ function damagePlayer(amount) {
       }, 2000); // Wait 2 seconds before returning to menu
     }
   }
+}
+
+function drawControlSchemeButton() {
+  const currentScheme = colorSchemes[colorMode];
+  const buttonX = width - 100; // Posição no canto superior direito
+  const buttonY = 50;
+
+  drawButton(controlScheme, buttonX, buttonY, currentScheme, 100, 40);
 }
 
 function handlePopupOption(option) {
@@ -810,54 +841,69 @@ function drawOptions() {
   // Title
   textAlign(CENTER, CENTER);
   textSize(48);
-  fill(currentScheme.primary[0], currentScheme.primary[1], currentScheme.primary[2]);
-  text("Opções", width/2, height/4);
+  fill(
+    currentScheme.primary[0],
+    currentScheme.primary[1],
+    currentScheme.primary[2]
+  );
+  text("Opções", width / 2, height / 4);
 
   // Music Volume section
   fill(currentScheme.accent);
   textSize(24);
-  text("Volume da Música", width/2, height/2 - 120);
+  text("Volume da Música", width / 2, height / 2 - 120);
 
   // Draw music slider
-  
-  sliderX = width/2;
-  sliderY = height/2 - 70;
+
+  sliderX = width / 2;
+  sliderY = height / 2 - 70;
 
   // Music Slider track
   stroke(currentScheme.primary);
   strokeWeight(2);
-  line(sliderX - sliderWidth/2, sliderY, sliderX + sliderWidth/2, sliderY);
+  line(sliderX - sliderWidth / 2, sliderY, sliderX + sliderWidth / 2, sliderY);
 
   // Music Slider handle
-  let handleX = map(musicVolume, 0, 1, sliderX - sliderWidth/2, sliderX + sliderWidth/2);
+  let handleX = map(
+    musicVolume,
+    0,
+    1,
+    sliderX - sliderWidth / 2,
+    sliderX + sliderWidth / 2
+  );
   fill(currentScheme.accent);
   noStroke();
   circle(handleX, sliderY, 20);
 
-
   // SFX Volume section
-  text("Volume dos Efeitos", width/2, height/2 - 20);
+  text("Volume dos Efeitos", width / 2, height / 2 - 20);
 
   // Draw SFX slider
-  sliderX2 = width/2;
-  sliderY2 = height/2 + 30;
+  sliderX2 = width / 2;
+  sliderY2 = height / 2 + 30;
 
   // SFX Slider track
   stroke(currentScheme.primary);
   strokeWeight(2);
-  line(sliderX2 - sliderWidth/2, sliderY2, sliderX2 + sliderWidth/2, sliderY2);
+  line(sliderX2 - sliderWidth / 2, sliderY2, sliderX2 + sliderWidth / 2, sliderY2);
 
   // SFX Slider handle
-  let handleX2 = map(sfxVolume, 0, 1, sliderX2 - sliderWidth/2, sliderX2 + sliderWidth/2);
+  let handleX2 = map(
+    sfxVolume,
+    0,
+    1,
+    sliderX2 - sliderWidth / 2,
+    sliderX2 + sliderWidth / 2
+  );
   fill(currentScheme.accent);
   noStroke();
   circle(handleX2, sliderY2, 20);
 
   // Rest of options...
-  text("Modo de Cor", width/2, height/2 + 100);
-  dropdownY = height/2 + 150;
-  drawDropdown(width/2, dropdownY);
-  drawButton("Voltar", width/2, height - 100, currentScheme);
+  text("Modo de Cor", width / 2, height / 2 + 100);
+  dropdownY = height / 2 + 150;
+  drawDropdown(width / 2, dropdownY);
+  drawButton("Voltar", width / 2, height - 100, currentScheme);
 }
 
 // Add new function for color mode buttons
@@ -901,12 +947,12 @@ function drawMusicSelection() {
   textAlign(CENTER, CENTER);
   textSize(48);
   fill(currentScheme.primary);
-  text("Seleção de Música", width/2, height/4); // Moved title up
+  text("Seleção de Música", width / 2, height / 4); // Moved title up
 
   // List songs with more spacing
   textSize(24);
   const spacing = 80; // Increased spacing between buttons
-  const startY = height/3 + 80; // Start buttons higher on screen
+  const startY = height / 3 + 80; // Start buttons higher on screen
 
   for (let i = 0; i < songs.length; i++) {
     let songY = startY + i * spacing;
@@ -917,12 +963,12 @@ function drawMusicSelection() {
     if (isSelected) {
       fill(currentScheme.accent);
     }
-    drawButton(songs[i].name, width/2, songY, currentScheme);
+    drawButton(songs[i].name, width / 2, songY, currentScheme);
     pop();
   }
 
   // Back button - moved further down
-  drawButton("Voltar", width/2, height - 80, currentScheme);
+  drawButton("Voltar", width / 2, height - 80, currentScheme);
 }
 
 function drawPopup() {
@@ -1158,7 +1204,7 @@ function resetGameState() {
   if (hitSound && hitSound.isPlaying()) {
     hitSound.stop();
   }
-  
+
   if (coinSound && coinSound.isPlaying()) {
     coinSound.stop();
   }
@@ -1170,8 +1216,6 @@ function resetGameState() {
   speedMultiplier = 1;
   coins = [];
   framesSinceLastCoin = 0;
-
-  
 
   // Forçar redesenho imediato
   redraw();
@@ -1196,95 +1240,67 @@ class Laser {
   constructor() {
     this.isVertical = Math.random() < VERTICAL_LASER_CHANCE;
     
+    // Calculate spawn position
     if (this.isVertical) {
-      // Spawn vertical laser within a range around the player's x position
-      const spawnRange = 300; // Adjustable range
+      const spawnRange = 300;
       this.x = constrain(
-        random(squareX - spawnRange/2, squareX + spawnRange/2), 
-        100, 
+        random(squareX - spawnRange/2, squareX + spawnRange/2),
+        100,
         width - 100
       );
       this.y = -20;
-      this.width = 8;
-      this.height = 40;
     } else {
       this.x = width + 20;
-      // Spawn horizontal laser within a range around the player's y position
-      const spawnRange = 200; // Adjustable range
+      const spawnRange = 200;
       this.y = constrain(
         random(squareY - spawnRange/2, squareY + spawnRange/2),
-        groundLevel - 150,
-        groundLevel - 50
+        100,
+        height - 100
       );
-      this.width = 40;
-      this.height = 8;
     }
+
+    // Calculate angle and velocity towards player
+    const dx = squareX - this.x;
+    const dy = squareY - this.y;
+    this.angle = Math.atan2(dy, dx);
     
-    this.speed = LASER_SPEED * speedMultiplier;
+    // Calculate velocity components
+    this.vx = Math.cos(this.angle) * LASER_SPEED * speedMultiplier;
+    this.vy = Math.sin(this.angle) * LASER_SPEED * speedMultiplier;
+
+    this.width = 8;
+    this.height = 40;
   }
 
   update() {
-    if (this.isVertical) {
-      this.y += this.speed;
-      return this.y > height + this.height; // Return true if laser is off screen
-    } else {
-      this.x -= this.speed;
-      return this.x < -this.width; // Return true if laser is off screen
-    }
+    // Move using velocity components
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Return true if laser is off screen
+    return (
+      this.x < -this.width ||
+      this.x > width + this.width ||
+      this.y < -this.height ||
+      this.y > height + this.height
+    );
   }
 
   draw(scheme) {
     push();
+    translate(this.x, this.y);
+    rotate(this.angle); // Rotate laser to face movement direction
+    
     // Laser beam
     fill(scheme.accent);
-    noStroke();
-    rect(this.x, this.y, this.width, this.height);
+    stroke(0)
+    strokeWeight(3);
+    rect(-this.width/2, -this.height/2, this.width, this.height);
 
     // Glow effect
     drawingContext.shadowBlur = 20;
     drawingContext.shadowColor = color(scheme.accent);
-    rect(this.x, this.y, this.width, this.height);
-    pop();
-  }
-
-  hits(playerX, playerY, playerWidth, playerHeight) {
-    return (
-      playerX - playerWidth/4 < this.x + this.width &&
-      playerX + playerWidth/4 > this.x &&
-      playerY - playerHeight/4 < this.y + this.height &&
-      playerY + playerHeight/4 > this.y
-    );
-  }
-}
-
-class Coin {
-  constructor() {
-    this.x = constrain(
-      random(window.innerWidth - 400, 400),
-      WALL_LEFT + 50,
-      WALL_RIGHT - 50
-    );
-    this.y = -20;
-    this.width = 30;
-    this.height = 30;
-    this.speed = COIN_SPEED;
-    this.rotation = 0;
-  }
-
-  update() {
-    this.y += this.speed;
-    this.rotation += 0.1;
-    return this.y > height + this.height;
-  }
-
-  draw() {
-    push();
-    translate(this.x, this.y);
-    rotate(this.rotation);
-    fill(255, 215, 0);
-    stroke(218, 165, 32);
-    strokeWeight(2);
-    circle(0, 0, this.width);
+    rect(-this.width/2, -this.height/2, this.width, this.height);
     pop();
   }
 
@@ -1294,6 +1310,58 @@ class Coin {
       playerX + playerWidth/4 > this.x - this.width/2 &&
       playerY - playerHeight/4 < this.y + this.height/2 &&
       playerY + playerHeight/4 > this.y - this.height/2
+    );
+  }
+}
+
+// Modify the Coin class
+class Coin {
+  constructor() {
+    // Get a random spawn point
+    const spawnPoint =
+      COIN_SPAWN_POINTS[Math.floor(random(0, COIN_SPAWN_POINTS.length))];
+
+    // Scale spawn points based on screen size
+    this.x = (spawnPoint.x / 1920) * width;
+    this.y = (spawnPoint.y / 1080) * height;
+
+    this.width = 30;
+    this.height = 30;
+    this.rotation = 0;
+    this.rotationSpeed = random(0.02, 0.08); // Different rotation speeds
+    this.scaleAnimation = 0; // For spawn animation
+  }
+
+  update() {
+    this.rotation += this.rotationSpeed;
+    this.scaleAnimation = min(this.scaleAnimation + 0.1, 1); // Smooth appear animation
+
+    // Optional: Make coins disappear after some time
+    return false; // Don't automatically remove coins
+  }
+
+  draw() {
+    push();
+    translate(this.x, this.y);
+    rotate(this.rotation);
+
+    // Scale animation
+    const currentScale = 0.2 + 0.8 * this.scaleAnimation;
+    scale(currentScale);
+
+    fill(255, 215, 0);
+    stroke(218, 165, 32);
+    strokeWeight(2);
+    circle(0, 0, this.width);
+    pop();
+  }
+
+  hits(playerX, playerY, playerWidth, playerHeight) {
+    return (
+      playerX - playerWidth / 4 < this.x + this.width / 2 &&
+      playerX + playerWidth / 4 > this.x - this.width / 2 &&
+      playerY - playerHeight / 4 < this.y + this.height / 2 &&
+      playerY + playerHeight / 4 > this.y - this.height / 2
     );
   }
 }
