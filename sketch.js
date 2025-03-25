@@ -92,7 +92,7 @@ let facingRight = true;
 
 let lasers = [];
 const LASER_SPEED = 7;
-const LASER_DAMAGE = 20;
+const LASER_DAMAGE = 10;
 const LASER_SPAWN_RATE = 120; // Frames between laser spawns
 let framesSinceLastLaser = 0;
 
@@ -163,11 +163,31 @@ const COIN_SPAWN_POINTS = [
 
 // Add these constants at the top of your file
 const INITIAL_LASER_SPAWN_RATE = 50; // Initial frames between laser spawns
-const MIN_LASER_SPAWN_RATE = 5; // Minimum frames between laser spawns
+const MIN_LASER_SPAWN_RATE = 15; // Minimum frames between laser spawns
 const LASER_SPAWN_DECREASE = 10; // How much to decrease spawn rate per coin collected
 
 // Add to your variables at the top of the file
 let bgImage;
+
+// Add these constants at the top of your file
+const HEALTH_SPAWN_RATE = 600; // Frames between health spawns (10 seconds at 60fps)
+const HEALTH_AMOUNT = 15; // Amount of health restored
+let framesSinceLastHealth = 0;
+let healthPickups = [];
+
+// Add these constants at the top of your file
+const INVINCIBILITY_DURATION = 600; // 10 seconds (60fps * 10)
+const INVINCIBILITY_SPAWN_RATE = 900; // 15 seconds between spawns
+let framesSinceLastInvincibility = 0;
+let invincibilityPickups = [];
+let isInvincible = false;
+let invincibilityTimer = 0;
+
+// Add to the variables at the top of the file
+let invincibilityFlashTimer = 0;
+const FLASH_INTERVAL = 10; // Controls how fast the invincibility effect flashes
+
+let healthSound;
 
 function preload() {
   customFont = loadFont("assets/fonts/BebasNeue-Regular.ttf"); // Carrega a fonte
@@ -220,6 +240,8 @@ function preload() {
 
   // Add to preload function
   bgImage = loadImage("assets/bg-bahia.png");
+
+  healthSound = loadSound("assets/sounds/sfx/health.wav");
 }
 
 function setup() {
@@ -542,11 +564,7 @@ function isMouseOverPopupButton(buttonX, buttonY) {
 
 function drawGame() {
   // Replace the existing background call with this
-  push();
-  imageMode(CORNER);
-  // Draw the background image scaled to fit the canvas
-  image(bgImage, 0, 0, width, height);
-  pop();
+  background(225,225,225)
 
   const currentScheme = colorSchemes[colorMode];
 
@@ -622,7 +640,8 @@ function drawGame() {
   // Restante da lógica do jogo (lasers, moedas, etc.)
   if (!isPopupOpen && !isDead) {
     // Calculate current spawn rate based on score
-    let currentSpawnRate = 100 - (score * 7)
+    let currentSpawnRate = 100 - (score * 1.1);
+    currentSpawnRate = max(currentSpawnRate, MIN_LASER_SPAWN_RATE);
 
     // Spawn new lasers
     framesSinceLastLaser++;
@@ -682,6 +701,71 @@ function drawGame() {
 
       coins[i].draw();
     }
+
+    // Spawn new health pickups
+    framesSinceLastHealth++;
+    if (framesSinceLastHealth >= HEALTH_SPAWN_RATE) {
+      healthPickups.push(new HealthPickup());
+      framesSinceLastHealth = 0;
+    }
+
+    // Update and draw health pickups
+    for (let i = healthPickups.length - 1; i >= 0; i--) {
+      if (healthPickups[i].update()) {
+        healthPickups.splice(i, 1);
+        continue;
+      }
+
+      if (healthPickups[i].hits(squareX, squareY, 200, 200)) {
+        playerHealth = min(playerHealth + HEALTH_AMOUNT, 100);
+        healthPickups.splice(i, 1);
+        if (healthSound) {
+          healthSound.setVolume(sfxVolume);
+          healthSound.play();
+        }
+        continue;
+      }
+
+      healthPickups[i].draw();
+    }
+
+    // Invincibility power-up spawning and update
+    framesSinceLastInvincibility++;
+    if (framesSinceLastInvincibility >= INVINCIBILITY_SPAWN_RATE) {
+      if (invincibilityPickups.length < 1) { // Only one star at a time
+        invincibilityPickups.push(new InvincibilityPickup());
+      }
+      framesSinceLastInvincibility = 0;
+    }
+
+    // Update invincibility timer
+    if (isInvincible) {
+      invincibilityTimer--;
+      if (invincibilityTimer <= 0) {
+        isInvincible = false;
+      }
+    }
+
+    // Update and draw invincibility pickups
+    for (let i = invincibilityPickups.length - 1; i >= 0; i--) {
+      if (invincibilityPickups[i].update()) {
+        invincibilityPickups.splice(i, 1);
+        continue;
+      }
+
+      if (invincibilityPickups[i].hits(squareX, squareY, 200, 200)) {
+        isInvincible = true;
+        invincibilityTimer = INVINCIBILITY_DURATION;
+        invincibilityPickups.splice(i, 1);
+        if (coinSound) {
+          coinSound.setVolume(sfxVolume);
+          coinSound.play();
+        }
+        continue;
+      }
+
+      invincibilityPickups[i].draw();
+    }
   }
 
   // Desenhar o personagem
@@ -698,6 +782,26 @@ function drawGame() {
     text("ACABOU O ARROCHA!", width / 2, height / 2 - 50);
     pop();
   } else {
+    // Add invincibility visual effect
+    if (isInvincible) {
+      invincibilityFlashTimer++;
+      if (invincibilityFlashTimer % FLASH_INTERVAL < FLASH_INTERVAL/2) {
+        tint(255, 255, 0, 200); // Yellow tint
+      } else {
+        tint(255, 255, 255, 200); // Normal with slight transparency
+      }
+      
+      // Draw invincibility timer
+      push();
+      textAlign(CENTER);
+      textSize(20);
+      fill(255, 255, 0);
+      stroke(0);
+      strokeWeight(2);
+      text(`Invencível: ${Math.ceil(invincibilityTimer/60)}s`, squareX, squareY - 100);
+      pop();
+    }
+
     // Check for downward movement first, then upward, then horizontal
     if (
       (controlScheme === "WASD" && keyIsDown(83)) ||
@@ -763,6 +867,44 @@ function drawGame() {
   translate(0, 0);
   textAlign(CENTER, CENTER);
   drawButton("Menu", 50, 50, colorSchemes[colorMode], 60, 60);
+
+  // Draw health bar
+  const healthBarWidth = 200;
+  const healthBarHeight = 20;
+  const healthBarX = 130; // Position after menu button
+  const healthBarY = 50;
+
+  // Health bar background
+  fill(100);
+  noStroke();
+  rect(healthBarX, healthBarY - healthBarHeight/2, healthBarWidth, healthBarHeight, 10);
+
+  // Health bar fill
+  const healthPercent = playerHealth / 100;
+  const healthColor = lerpColor(
+    color(255, 0, 0),   // Red when low health
+    color(0, 255, 0),   // Green when full health
+    healthPercent
+  );
+  
+  fill(healthColor);
+  rect(
+    healthBarX, 
+    healthBarY - healthBarHeight/2,
+    healthBarWidth * healthPercent,
+    healthBarHeight,
+    10
+  );
+
+  // Health text
+  fill(255);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  text(`${playerHealth}%`, healthBarX + healthBarWidth/2, healthBarY);
+  pop();
+
+  // ...rest of drawGame code...
   pop();
 
 
@@ -775,7 +917,7 @@ function drawGame() {
   
   // Draw score
   
-  stroke(0)
+  //stroke(0)
   fill(currentScheme.primary);
   text(`Moedas: ${score}`, width/2, 50);
   pop();
@@ -794,7 +936,7 @@ function drawGame() {
 }
 
 function damagePlayer(amount) {
-  if (!isDead) {
+  if (!isDead && !isInvincible) {  // Check invincibility before applying damage
     playerHealth = Math.max(0, playerHealth - amount);
 
     if (hitSound) {
@@ -1209,6 +1351,10 @@ function resetGameState() {
     coinSound.stop();
   }
 
+  if (healthSound && healthSound.isPlaying()) {
+    healthSound.stop();
+  }
+
   lasers = [];
   framesSinceLastLaser = 0;
 
@@ -1216,6 +1362,15 @@ function resetGameState() {
   speedMultiplier = 1;
   coins = [];
   framesSinceLastCoin = 0;
+
+  healthPickups = [];
+  framesSinceLastHealth = 0;
+
+  isInvincible = false;
+  invincibilityTimer = 0;
+  invincibilityFlashTimer = 0;
+  invincibilityPickups = [];
+  framesSinceLastInvincibility = 0
 
   // Forçar redesenho imediato
   redraw();
@@ -1362,6 +1517,132 @@ class Coin {
       playerX + playerWidth / 4 > this.x - this.width / 2 &&
       playerY - playerHeight / 4 < this.y + this.height / 2 &&
       playerY + playerHeight / 4 > this.y - this.height / 2
+    );
+  }
+}
+
+// Add the HealthPickup class
+class HealthPickup {
+  constructor() {
+    // Similar to Coin spawn points
+    const spawnPoint = COIN_SPAWN_POINTS[Math.floor(random(0, COIN_SPAWN_POINTS.length))];
+    
+    this.x = (spawnPoint.x / 1920) * width;
+    this.y = (spawnPoint.y / 1080) * height;
+    this.width = 30;
+    this.height = 30;
+    this.scaleAnimation = 0;
+    this.rotation = 0;
+    this.floatOffset = 0;
+    this.floatSpeed = 0.05;
+  }
+
+  update() {
+    this.scaleAnimation = min(this.scaleAnimation + 0.1, 1);
+    this.floatOffset = sin(frameCount * this.floatSpeed) * 5;
+    this.rotation += 0.02;
+    return false;
+  }
+
+  draw() {
+    push();
+    translate(this.x, this.y + this.floatOffset);
+    //rotate(this.rotation);
+    
+    // Scale animation
+    const currentScale = 0.2 + 0.8 * this.scaleAnimation;
+    scale(currentScale);
+    
+    // Draw red cross
+    
+    strokeWeight(0);
+    fill(255, 0, 0);
+    
+    // Cross shape
+    rect(-15, -5, 30, 10, 5);
+    rect(-5, -15, 10, 30, 5);
+    
+    // Glow effect
+    drawingContext.shadowBlur = 15;
+    drawingContext.shadowColor = color(255, 0, 0);
+    
+    pop();
+  }
+
+  hits(playerX, playerY, playerWidth, playerHeight) {
+    return (
+      playerX - playerWidth/4 < this.x + this.width/2 &&
+      playerX + playerWidth/4 > this.x - this.width/2 &&
+      playerY - playerHeight/4 < this.y + this.height/2 &&
+      playerY + playerHeight/4 > this.y - this.height/2
+    );
+  }
+}
+
+// Add the InvincibilityPickup class
+class InvincibilityPickup {
+  constructor() {
+    const spawnPoint = COIN_SPAWN_POINTS[Math.floor(random(0, COIN_SPAWN_POINTS.length))];
+    
+    this.x = (spawnPoint.x / 1920) * width;
+    this.y = (spawnPoint.y / 1080) * height;
+    this.width = 40;
+    this.height = 40;
+    this.rotation = 0;
+    this.scaleAnimation = 0;
+    this.floatOffset = 0;
+    this.floatSpeed = 0.05;
+  }
+
+  update() {
+    this.rotation += 0.03;
+    this.scaleAnimation = min(this.scaleAnimation + 0.1, 1);
+    this.floatOffset = sin(frameCount * this.floatSpeed) * 8;
+    return false;
+  }
+
+  draw() {
+    push();
+    translate(this.x, this.y + this.floatOffset);
+    //rotate(this.rotation);
+    
+    // Scale animation
+    const currentScale = 0.2 + 0.8 * this.scaleAnimation;
+    scale(currentScale);
+    
+    // Draw star
+    fill(255, 255, 0); // Yellow
+    stroke(255, 200, 0); // Orange
+    strokeWeight(2);
+    
+    // Draw 5-pointed star
+    beginShape();
+    for (let i = 0; i < 5; i++) {
+      const angle = TWO_PI * i / 5 - HALF_PI;
+      const x1 = cos(angle) * 20;
+      const y1 = sin(angle) * 20;
+      vertex(x1, y1);
+      
+      const angle2 = TWO_PI * (i + 0.5) / 5 - HALF_PI;
+      const x2 = cos(angle2) * 10;
+      const y2 = sin(angle2) * 10;
+      vertex(x2, y2);
+    }
+    endShape(CLOSE);
+    
+    // Glow effect
+    drawingContext.shadowBlur = 15;
+    drawingContext.shadowColor = color(255, 255, 0);
+    
+    pop();
+  }
+
+  hits(playerX, playerY, playerWidth, playerHeight) {
+    return (
+      playerX - playerWidth/4 < this.x + this.width/2 &&
+      playerX + playerWidth/4 > this.x - this.width/2 &&
+      playerY - playerHeight/4 < this.y + this.height/2 &&
+      playerY + playerHeight/4 > this.y - this.height/2
     );
   }
 }
