@@ -100,6 +100,10 @@ let jumpSound;
 let hitSound;
 let coinSound;
 
+let gamepadConnected = false;
+let gamepadIndex = null;
+const GAMEPAD_DEADZONE = 0.15; // Zona morta para evitar movimento acidental
+
 let colorMode = "Normal";
 let selectedColor = 0;
 const colorModes = ["Normal", "Protanopia", "Deuteranopia", "Tritanopia"];
@@ -161,6 +165,24 @@ const COIN_SPAWN_POINTS = [
   // Add more spawn points as needed
 ];
 
+const POWER_UP_SPAWN_POINTS = [
+  { x: 200, y: 200 },
+  { x: 400, y: 300 },
+  { x: 600, y: 400 },
+  { x: 800, y: 200 },
+  { x: 1000, y: 300 },
+  { x: 1200, y: 400 },
+]
+
+const HEALTH_SPAWN_POINTS = [
+  { x: 200, y: 200 },
+  { x: 400, y: 300 },
+  { x: 600, y: 400 },
+  { x: 800, y: 200 },
+  { x: 1000, y: 300 },
+  { x: 1200, y: 400 },
+]
+
 // Add these constants at the top of your file
 const INITIAL_LASER_SPAWN_RATE = 50; // Initial frames between laser spawns
 const MIN_LASER_SPAWN_RATE = 15; // Minimum frames between laser spawns
@@ -178,7 +200,7 @@ let healthPickups = [];
 // Add these constants at the top of your file
 const INVINCIBILITY_DURATION = 600; // 10 seconds (60fps * 10)
 const INVINCIBILITY_SPAWN_RATE = 900; // 15 seconds between spawns
-let framesSinceLastInvincibility = 0;
+let framesSinceLastInvincibility = 0; 
 let invincibilityPickups = [];
 let isInvincible = false;
 let invincibilityTimer = 0;
@@ -252,13 +274,20 @@ function setup() {
 
   bgMusic.setVolume(musicVolume);
 
-  // Auto-start audio context and music
-  /*getAudioContext()
-    .resume()
-    .then(() => {
-      bgMusic.loop();
-      isAudioStarted = true;
-    });*/
+  // Adicionar listener para controles
+  window.addEventListener("gamepadconnected", function(e) {
+    console.log("Gamepad connected:", e.gamepad);
+    gamepadConnected = true;
+    gamepadIndex = e.gamepad.index;
+  });
+
+  window.addEventListener("gamepaddisconnected", function(e) {
+    console.log("Gamepad disconnected:", e.gamepad);
+    if (e.gamepad.index === gamepadIndex) {
+      gamepadConnected = false;
+      gamepadIndex = null;
+    }
+  });
 
   groundLevel = height - 100;
 }
@@ -267,6 +296,8 @@ function draw() {
   background(245, 239, 235);
 
   updateHoverStates();
+
+  checkGamepadConnection();
 
   if (gameState === "menu") {
     drawMenu();
@@ -279,6 +310,16 @@ function draw() {
     drawOptions();
   } else if (gameState === "music") {
     drawMusicSelection();
+  }
+
+  if (navigator.getGamepads && navigator.getGamepads()[0]) {
+    if (!gamepadConnected) {
+      gamepadConnected = true;
+      gamepadIndex = 0;
+    }
+  } else if (gamepadConnected) {
+    gamepadConnected = false;
+    gamepadIndex = null;
   }
 }
 
@@ -317,9 +358,50 @@ function mouseDragged() {
   }
 }
 
+// Modify the checkGamepadInput function
+function checkGamepadInput() {
+  if (!gamepadConnected) return { moveX: 0, moveY: 0, buttons: { jump: false, crouch: false } };
+
+  const gamepads = navigator.getGamepads();
+  if (!gamepads || !gamepads[0]) return { moveX: 0, moveY: 0, buttons: { jump: false, crouch: false } };
+
+  const gamepad = gamepads[0];
+  
+  // Eixos do analógico esquerdo (axes 0 e 1)
+  let moveX = gamepad.axes[0] || 0;
+  let moveY = gamepad.axes[1] || 0;
+
+  // Aplicar zona morta
+  if (Math.abs(moveX) < GAMEPAD_DEADZONE) moveX = 0;
+  if (Math.abs(moveY) < GAMEPAD_DEADZONE) moveY = 0;
+
+  // Verificar botões (A=0, B=1, X=2, Y=3 nos controles padrão)
+  const buttons = {
+    jump: gamepad.buttons[0]?.pressed || false,
+    crouch: gamepad.buttons[2]?.pressed || false
+  };
+
+  return { moveX, moveY, buttons };
+}
+
 function keyPressed() {
   if (keyCode === ESCAPE && gameState === "game" && !isDead) {
     isPopupOpen = !isPopupOpen; // Toggle popup state
+  }
+}
+
+function checkGamepadConnection() {
+  const gamepads = navigator.getGamepads();
+  const hasGamepad = gamepads && gamepads[0] && gamepads[0].connected;
+  
+  if (hasGamepad && !gamepadConnected) {
+    gamepadConnected = true;
+    gamepadIndex = 0;
+    console.log("Controle conectado:", gamepads[0].id);
+  } else if (!hasGamepad && gamepadConnected) {
+    gamepadConnected = false;
+    gamepadIndex = null;
+    console.log("Controle desconectado");
   }
 }
 
@@ -568,206 +650,183 @@ function drawGame() {
 
   const currentScheme = colorSchemes[colorMode];
 
-  // Lógica de física do jogo (só executa se não estiver pausado)
-  // Inside drawGame function, replace the movement code:
   if (!isPopupOpen && !isDead) {
-    // Movimento horizontal e vertical
+    // Initialize movement vector
+    let moveX = 0;
+    let moveY = 0;
+
+    // Verificar entrada do controle
+    const gamepadInput = checkGamepadInput();
+
+    // Combinar entrada do teclado e do controle
     if (controlScheme === "WASD") {
-      if (keyIsDown(65)) {
-        // Tecla A (esquerda)
-        if (squareX - 100 > 0) {
-          // Check left boundary
-          squareX -= speed * speedMultiplier;
-          facingRight = false;
-        }
-      }
-      if (keyIsDown(68)) {
-        // Tecla D (direita)
-        if (squareX + 100 < width) {
-          // Check right boundary
-          squareX += speed * speedMultiplier;
-          facingRight = true;
-        }
-      }
-      if (keyIsDown(87)) {
-        // Tecla W (cima)
-        if (squareY - 100 > 0) {
-          // Check top boundary
-          squareY -= speed * speedMultiplier;
-        }
-      }
-      if (keyIsDown(83)) {
-        // Tecla S (baixo)
-        if (squareY + 100 < height) {
-          // Check bottom boundary
-          squareY += speed * speedMultiplier;
-        }
-      }
+      if (keyIsDown(65)) moveX -= 1; // A
+      if (keyIsDown(68)) moveX += 1; // D
+      if (keyIsDown(87)) moveY -= 1; // W
+      if (keyIsDown(83)) moveY += 1; // S
     } else {
-      if (keyIsDown(LEFT_ARROW)) {
-        // Seta esquerda
-        if (squareX - 100 > 0) {
-          // Check left boundary
-          squareX -= speed * speedMultiplier;
-          facingRight = false;
+      if (keyIsDown(LEFT_ARROW)) moveX -= 1;
+      if (keyIsDown(RIGHT_ARROW)) moveX += 1;
+      if (keyIsDown(UP_ARROW)) moveY -= 1;
+      if (keyIsDown(DOWN_ARROW)) moveY += 1;
+    }
+
+    // Normalize diagonal movement
+    if (moveX !== 0 && moveY !== 0) {
+      const normalizer = 1 / Math.sqrt(2);
+      moveX *= normalizer;
+      moveY *= normalizer;
+    }
+
+    // Apply movement with boundary checks
+    if (moveX !== 0) {
+      const nextX = squareX + moveX * speed * speedMultiplier;
+      if (nextX - 100 > 0 && nextX + 100 < width) {
+        squareX = nextX;
+        facingRight = moveX > 0;
+      }
+    }
+
+    if (moveY !== 0) {
+      const nextY = squareY + moveY * speed * speedMultiplier;
+      if (nextY - 100 > 0 && nextY + 100 < height) {
+        squareY = nextY;
+      }
+    }
+
+    // Rest of game logic (lasers, coins, etc.)
+    if (!isPopupOpen && !isDead) {
+      // Calculate current spawn rate based on score
+      let currentSpawnRate = 100 - (score * 1.1);
+      currentSpawnRate = max(currentSpawnRate, MIN_LASER_SPAWN_RATE);
+  
+      // Spawn new lasers
+      framesSinceLastLaser++;
+      if (framesSinceLastLaser >= currentSpawnRate / speedMultiplier) {
+        lasers.push(new Laser());
+        framesSinceLastLaser = 0;
+      }
+  
+      // Update and draw lasers
+      for (let i = lasers.length - 1; i >= 0; i--) {
+        if (lasers[i].update()) {
+          lasers.splice(i, 1);
+          continue;
+        }
+  
+        if (lasers[i].hits(squareX, squareY, 200, 200)) {
+          damagePlayer(LASER_DAMAGE);
+          lasers.splice(i, 1);
+          continue;
+        }
+  
+        lasers[i].draw(currentScheme);
+      }
+  
+      // Spawn new coins
+      framesSinceLastCoin++;
+      if (framesSinceLastCoin >= COIN_SPAWN_RATE) {
+        // Only spawn new coin if there are less than X coins
+        if (coins.length < 5) {
+          // Adjust maximum number of coins as needed
+          coins.push(new Coin());
+        }
+        framesSinceLastCoin = 0;
+      }
+  
+      // Update and draw coins
+      for (let i = coins.length - 1; i >= 0; i--) {
+        if (coins[i].update()) {
+          coins.splice(i, 1);
+          continue;
+        }
+  
+        if (coins[i].hits(squareX, squareY, 200, 200)) {
+          score++;
+          coins.splice(i, 1);
+  
+          if (coinSound) {
+            coinSound.setVolume(sfxVolume);
+            coinSound.play();
+          }
+  
+          if (score % COINS_FOR_SPEEDUP === 0) {
+            speedMultiplier += SPEED_INCREASE;
+          }
+          continue;
+        }
+  
+        coins[i].draw();
+      }
+  
+      // Spawn new health pickups
+      framesSinceLastHealth++;
+      if (framesSinceLastHealth >= HEALTH_SPAWN_RATE) {
+        healthPickups.push(new HealthPickup());
+        framesSinceLastHealth = 0;
+      }
+  
+      // Update and draw health pickups
+      for (let i = healthPickups.length - 1; i >= 0; i--) {
+        if (healthPickups[i].update()) {
+          healthPickups.splice(i, 1);
+          continue;
+        }
+  
+        if (healthPickups[i].hits(squareX, squareY, 200, 200)) {
+          playerHealth = min(playerHealth + HEALTH_AMOUNT, 100);
+          healthPickups.splice(i, 1);
+          if (healthSound) {
+            healthSound.setVolume(sfxVolume);
+            healthSound.play();
+          }
+          continue;
+        }
+  
+        healthPickups[i].draw();
+      }
+  
+      // Invincibility power-up spawning and update
+      framesSinceLastInvincibility++;
+      if (framesSinceLastInvincibility >= INVINCIBILITY_SPAWN_RATE) {
+        if (invincibilityPickups.length < 1) { // Only one star at a time
+          invincibilityPickups.push(new InvincibilityPickup());
+        }
+        framesSinceLastInvincibility = 0;
+      }
+  
+      // Update invincibility timer
+      if (isInvincible) {
+        invincibilityTimer--;
+        if (invincibilityTimer <= 0) {
+          isInvincible = false;
         }
       }
-      if (keyIsDown(RIGHT_ARROW)) {
-        // Seta direita
-        if (squareX + 100 < width) {
-          // Check right boundary
-          squareX += speed * speedMultiplier;
-          facingRight = true;
+  
+      // Update and draw invincibility pickups
+      for (let i = invincibilityPickups.length - 1; i >= 0; i--) {
+        if (invincibilityPickups[i].update()) {
+          invincibilityPickups.splice(i, 1);
+          continue;
         }
-      }
-      if (keyIsDown(UP_ARROW)) {
-        // Seta cima
-        if (squareY - 100 > 0) {
-          // Check top boundary
-          squareY -= speed * speedMultiplier;
+  
+        if (invincibilityPickups[i].hits(squareX, squareY, 200, 200)) {
+          isInvincible = true;
+          invincibilityTimer = INVINCIBILITY_DURATION;
+          invincibilityPickups.splice(i, 1);
+          if (coinSound) {
+            coinSound.setVolume(sfxVolume);
+            coinSound.play();
+          }
+          continue;
         }
-      }
-      if (keyIsDown(DOWN_ARROW)) {
-        // Seta baixo
-        if (squareY + 100 < height) {
-          // Check bottom boundary
-          squareY += speed * speedMultiplier;
-        }
+  
+        invincibilityPickups[i].draw();
       }
     }
   }
 
-  // Restante da lógica do jogo (lasers, moedas, etc.)
-  if (!isPopupOpen && !isDead) {
-    // Calculate current spawn rate based on score
-    let currentSpawnRate = 100 - (score * 1.1);
-    currentSpawnRate = max(currentSpawnRate, MIN_LASER_SPAWN_RATE);
-
-    // Spawn new lasers
-    framesSinceLastLaser++;
-    if (framesSinceLastLaser >= currentSpawnRate / speedMultiplier) {
-      lasers.push(new Laser());
-      framesSinceLastLaser = 0;
-    }
-
-    // Update and draw lasers
-    for (let i = lasers.length - 1; i >= 0; i--) {
-      if (lasers[i].update()) {
-        lasers.splice(i, 1);
-        continue;
-      }
-
-      if (lasers[i].hits(squareX, squareY, 200, 200)) {
-        damagePlayer(LASER_DAMAGE);
-        lasers.splice(i, 1);
-        continue;
-      }
-
-      lasers[i].draw(currentScheme);
-    }
-
-    // Spawn new coins
-    framesSinceLastCoin++;
-    if (framesSinceLastCoin >= COIN_SPAWN_RATE) {
-      // Only spawn new coin if there are less than X coins
-      if (coins.length < 5) {
-        // Adjust maximum number of coins as needed
-        coins.push(new Coin());
-      }
-      framesSinceLastCoin = 0;
-    }
-
-    // Update and draw coins
-    for (let i = coins.length - 1; i >= 0; i--) {
-      if (coins[i].update()) {
-        coins.splice(i, 1);
-        continue;
-      }
-
-      if (coins[i].hits(squareX, squareY, 200, 200)) {
-        score++;
-        coins.splice(i, 1);
-
-        if (coinSound) {
-          coinSound.setVolume(sfxVolume);
-          coinSound.play();
-        }
-
-        if (score % COINS_FOR_SPEEDUP === 0) {
-          speedMultiplier += SPEED_INCREASE;
-        }
-        continue;
-      }
-
-      coins[i].draw();
-    }
-
-    // Spawn new health pickups
-    framesSinceLastHealth++;
-    if (framesSinceLastHealth >= HEALTH_SPAWN_RATE) {
-      healthPickups.push(new HealthPickup());
-      framesSinceLastHealth = 0;
-    }
-
-    // Update and draw health pickups
-    for (let i = healthPickups.length - 1; i >= 0; i--) {
-      if (healthPickups[i].update()) {
-        healthPickups.splice(i, 1);
-        continue;
-      }
-
-      if (healthPickups[i].hits(squareX, squareY, 200, 200)) {
-        playerHealth = min(playerHealth + HEALTH_AMOUNT, 100);
-        healthPickups.splice(i, 1);
-        if (healthSound) {
-          healthSound.setVolume(sfxVolume);
-          healthSound.play();
-        }
-        continue;
-      }
-
-      healthPickups[i].draw();
-    }
-
-    // Invincibility power-up spawning and update
-    framesSinceLastInvincibility++;
-    if (framesSinceLastInvincibility >= INVINCIBILITY_SPAWN_RATE) {
-      if (invincibilityPickups.length < 1) { // Only one star at a time
-        invincibilityPickups.push(new InvincibilityPickup());
-      }
-      framesSinceLastInvincibility = 0;
-    }
-
-    // Update invincibility timer
-    if (isInvincible) {
-      invincibilityTimer--;
-      if (invincibilityTimer <= 0) {
-        isInvincible = false;
-      }
-    }
-
-    // Update and draw invincibility pickups
-    for (let i = invincibilityPickups.length - 1; i >= 0; i--) {
-      if (invincibilityPickups[i].update()) {
-        invincibilityPickups.splice(i, 1);
-        continue;
-      }
-
-      if (invincibilityPickups[i].hits(squareX, squareY, 200, 200)) {
-        isInvincible = true;
-        invincibilityTimer = INVINCIBILITY_DURATION;
-        invincibilityPickups.splice(i, 1);
-        if (coinSound) {
-          coinSound.setVolume(sfxVolume);
-          coinSound.play();
-        }
-        continue;
-      }
-
-      invincibilityPickups[i].draw();
-    }
-  }
-
+  // Draw rest of UI elements
   // Desenhar o personagem
   push();
   imageMode(CENTER);
@@ -800,6 +859,16 @@ function drawGame() {
       strokeWeight(2);
       text(`Invencível: ${Math.ceil(invincibilityTimer/60)}s`, squareX, squareY - 100);
       pop();
+
+      if (gamepadConnected) {
+        push();
+        fill(0, 255, 0);
+        noStroke();
+        textAlign(LEFT, TOP);
+        textSize(20);
+        text("🎮", 20, 20);
+        pop();
+      }
     }
 
     // Check for downward movement first, then upward, then horizontal
@@ -905,7 +974,7 @@ function drawGame() {
   pop();
 
   // ...rest of drawGame code...
-  pop();
+  //pop();
 
 
   push();
@@ -1525,7 +1594,7 @@ class Coin {
 class HealthPickup {
   constructor() {
     // Similar to Coin spawn points
-    const spawnPoint = COIN_SPAWN_POINTS[Math.floor(random(0, COIN_SPAWN_POINTS.length))];
+    const spawnPoint = HEALTH_SPAWN_POINTS[Math.floor(random(0, HEALTH_SPAWN_POINTS.length))];
     
     this.x = (spawnPoint.x / 1920) * width;
     this.y = (spawnPoint.y / 1080) * height;
@@ -1582,7 +1651,7 @@ class HealthPickup {
 // Add the InvincibilityPickup class
 class InvincibilityPickup {
   constructor() {
-    const spawnPoint = COIN_SPAWN_POINTS[Math.floor(random(0, COIN_SPAWN_POINTS.length))];
+    const spawnPoint = POWER_UP_SPAWN_POINTS[Math.floor(random(0, POWER_UP_SPAWN_POINTS.length))];
     
     this.x = (spawnPoint.x / 1920) * width;
     this.y = (spawnPoint.y / 1080) * height;
